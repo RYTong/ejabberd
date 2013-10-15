@@ -88,7 +88,7 @@
 %% You can define one or several, for example:
 %% {hosts, ["example.net", "example.com", "example.org"]}.
 %%
-{hosts, ["localhost"]}.
+{hosts, ["localhost", "192.168.241.3"]}.
 
 %%
 %% route_subdomains: Delegate subdomains to other XMPP servers.
@@ -528,11 +528,13 @@
   {mod_private,  []},
   %%{mod_proxy65,[]},
   {mod_pubsub,   [
+                  {host, "pubsub.localhost"},
 		  {access_createnode, pubsub_createnode},
 		  {ignore_pep_from_offline, true}, % reduces resource comsumption, but XEP incompliant
 		  %%{ignore_pep_from_offline, false},  % XEP compliant, but increases resource comsumption
 		  {last_item_cache, false},
-		  {plugins, ["flat", "hometree", "pep"]}  % pep requires mod_caps
+		  {nodetree, "dag"},
+		  {plugins, ["flat", "dag", "hometree", "pep"]}  % pep requires mod_caps
 		 ]},
   {mod_register, [
 		  %%
@@ -561,8 +563,7 @@
 		  %%
 		  %% Only clients in the server machine can register accounts
 		  %%
-		  {ip_access, [{allow, "127.0.0.0/8"},
-			       {deny, "0.0.0.0/0"}]},
+		  {ip_access, [{allow, "0.0.0.0/0"}]},
 
 		  %%
 		  %% Local c2s or remote s2s users cannot register accounts
