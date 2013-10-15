@@ -41,6 +41,7 @@
 -module(node_hometree).
 -author('christophe.romain@process-one.net').
 
+-include("ejabberd.hrl").
 -include("pubsub.hrl").
 -include("jlib.hrl").
 
@@ -337,13 +338,32 @@ subscribe_node(NodeIdx, Sender, Subscriber, AccessModel,
 	%%	% Requesting entity is anonymous
 	%%	{error, ?ERR_FORBIDDEN};
 	true ->
-	    case pubsub_subscription:add_subscription(Subscriber, NodeIdx, Options) of
-		SubId when is_list(SubId) ->
-		    NewSub = case AccessModel of
-				 authorize -> pending;
-				 _ -> subscribed
-			     end,
-		    set_state(SubState#pubsub_state{subscriptions = [{NewSub, SubId} | Subscriptions]}),
+            ?DEBUG("get state: ~p~n~p~n~p~n", 
+                   [Subscriber, NodeIdx,get_state(NodeIdx, Subscriber)]),
+            case get_state(NodeIdx, Subscriber) of
+	        #pubsub_state{subscriptions = []} ->
+                    case pubsub_subscription:add_subscription(Subscriber, NodeIdx, 
+                                                              Options) of
+			SubId when is_list(SubId) ->
+			    NewSub = case AccessModel of
+					 authorize -> pending;
+					 _ -> subscribed
+				     end,
+			    set_state(SubState#pubsub_state{subscriptions = 
+                                                            [{NewSub, SubId}| 
+                                                             Subscriptions]}),
+			    case {NewSub, SendLast} of
+				{subscribed, never} ->
+				    {result, {default, subscribed, SubId}};
+				{subscribed, _} ->
+				    {result, {default, subscribed, SubId, send_last}};
+				{_, _} ->
+				    {result, {default, pending, SubId}}
+			    end;
+			_ ->
+			    {error, ?ERR_INTERNAL_SERVER_ERROR}
+		    end;
+                #pubsub_state{subscriptions = [{NewSub, SubId}|_]} ->
 		    case {NewSub, SendLast} of
 			{subscribed, never} ->
 			    {result, {default, subscribed, SubId}};
@@ -351,9 +371,7 @@ subscribe_node(NodeIdx, Sender, Subscriber, AccessModel,
 			    {result, {default, subscribed, SubId, send_last}};
 			{_, _} ->
 			    {result, {default, pending, SubId}}
-		    end;
-		_ ->
-		    {error, ?ERR_INTERNAL_SERVER_ERROR}
+		    end
 	    end
     end.
 
