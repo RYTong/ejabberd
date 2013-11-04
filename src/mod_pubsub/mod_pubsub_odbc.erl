@@ -3350,8 +3350,10 @@ set_configure(Host, Node, From, Els, Lang) ->
 					{error, ?ERR_FORBIDDEN}
 				end
 			end,
-		    case transaction(Host, Node, Action, transaction) of
-			{result, {TNode, ok}} ->
+                    R = transaction(Host, Node, Action, transaction),
+                    ?DEBUG("set_configure R: ~p",[R]),
+		    case R of
+			{result, {TNode, Node}} ->
 			    NodeId = TNode#pubsub_node.id,
 			    Type = TNode#pubsub_node.type,
 			    Options = TNode#pubsub_node.options,

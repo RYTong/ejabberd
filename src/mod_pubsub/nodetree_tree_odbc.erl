@@ -345,7 +345,7 @@ set_node(Record) ->
 					  ["insert into pubsub_node_option(nodeid, name, val) "
 					   "values('", NodeId, "', '", SKey, "', '", SValue, "');"]) 
 			  end, Record#pubsub_node.options),
-	    {result, NodeId}
+	    {result, Node}
     end.
 
 nodeid(Host, Node) ->
