@@ -147,6 +147,7 @@ options() ->
      {persist_items, true},
      {max_items, ?MAXITEMS},
      {subscribe, true},
+     {title, []},
      {access_model, open},
      {roster_groups_allowed, []},
      {publish_model, publishers},

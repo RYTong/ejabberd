@@ -3353,7 +3353,7 @@ set_configure(Host, Node, From, Els, Lang) ->
                     R = transaction(Host, Node, Action, transaction),
                     ?DEBUG("set_configure R: ~p",[R]),
 		    case R of
-			{result, {TNode, Node}} ->
+			{result, {TNode, _}} when is_record(TNode, pubsub_node)->
 			    NodeId = TNode#pubsub_node.id,
 			    Type = TNode#pubsub_node.type,
 			    Options = TNode#pubsub_node.options,
