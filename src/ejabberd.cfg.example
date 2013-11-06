@@ -88,7 +88,7 @@
 %% You can define one or several, for example:
 %% {hosts, ["example.net", "example.com", "example.org"]}.
 %%
-{hosts, ["localhost", "192.168.241.3"]}.
+{hosts, ["localhost", "192.168.241.3", "ermp"]}.
 
 %%
 %% route_subdomains: Delegate subdomains to other XMPP servers.
@@ -217,7 +217,7 @@
 %% If you want to use a different method,
 %% comment this line and enable the correct ones.
 %%
-{auth_method, internal}.
+%{auth_method, internal}.
 %%
 %% Store the plain passwords or hashed for SCRAM:
 %%{auth_password_format, plain}.
@@ -237,7 +237,7 @@
 %% Authentication using ODBC
 %% Remember to setup a database in the next section.
 %%
-%%{auth_method, odbc}.
+{auth_method, odbc}.
 
 %%
 %% Authentication using PAM
@@ -303,7 +303,7 @@
 %%
 %% MySQL server:
 %%
-%%{odbc_server, {mysql, "server", "database", "username", "password"}}.
+{odbc_server, {mysql, "localhost", "ejabberd", "ejabberd", "ejabberd"}}.
 %%
 %% If you want to specify the port:
 %%{odbc_server, {mysql, "server", 1234, "database", "username", "password"}}.
@@ -329,13 +329,13 @@
 %%
 %% Number of connections to open to the database for each virtual host
 %%
-%%{odbc_pool_size, 10}.
+{odbc_pool_size, 10}.
 
 %%
 %% Interval to make a dummy SQL request to keep the connections to the
 %% database alive. Specify in seconds: for example 28800 means 8 hours
 %%
-%%{odbc_keepalive_interval, undefined}.
+{odbc_keepalive_interval, 600}.
 
 
 %%%.   ===============
@@ -378,6 +378,9 @@
 %% Local users: don't modify this line.
 %%
 {acl, local, {user_regexp, ""}}.
+
+%% pubsub owner of ewp
+%%{acl, ewp_pubsub, {user, "ewp_pubsub", "ermp"}}
 
 %%
 %% More examples of ACLs
@@ -437,6 +440,7 @@
 
 %% Only accounts on the local ejabberd server can create Pubsub nodes:
 {access, pubsub_createnode, [{allow, local}]}.
+%%{access, pubsub_createnode, [{allow, ewp_pubsub}]}
 
 %% In-band registration allows registration of any possible username.
 %% To disable in-band registration, replace 'allow' with 'deny'.
@@ -512,7 +516,7 @@
   %%                       {docroot, "/var/www"},
   %%                       {accesslog, "/var/log/ejabberd/access.log"}
   %%                      ]},
-  {mod_last,     []},
+  {mod_last_odbc,     []},
   {mod_muc,      [
 		  %%{host, "conference.@HOST@"},
 		  {access, muc},
@@ -521,20 +525,20 @@
 		  {access_admin, muc_admin}
 		 ]},
   %%{mod_muc_log,[]},
-  {mod_offline,  [{access_max_user_messages, max_user_offline_messages}]},
+  {mod_offline_odbc,  [{access_max_user_messages, max_user_offline_messages}]},
   {mod_ping,     []},
   %%{mod_pres_counter,[{count, 5}, {interval, 60}]},
-  {mod_privacy,  []},
-  {mod_private,  []},
+  {mod_privacy_odbc,  []},
+  {mod_private_odbc,  []},
   %%{mod_proxy65,[]},
-  {mod_pubsub,   [
-                  {host, "pubsub.localhost"},
+  {mod_pubsub_odbc,   [
+                  %{host, "pubsub.ermp"},
 		  {access_createnode, pubsub_createnode},
 		  {ignore_pep_from_offline, true}, % reduces resource comsumption, but XEP incompliant
 		  %%{ignore_pep_from_offline, false},  % XEP compliant, but increases resource comsumption
 		  {last_item_cache, false},
-		  {nodetree, "dag"},
-		  {plugins, ["flat", "dag", "hometree", "pep"]}  % pep requires mod_caps
+		  {nodetree, "tree_odbc"},
+		  {plugins, ["hometree_odbc"]}  % pep requires mod_caps
 		 ]},
   {mod_register, [
 		  %%
@@ -579,12 +583,12 @@
 		  %%
 		  %%{registration_watchers, ["admin1@example.org"]}
   %%		 ]},
-  {mod_roster,   []},
+  {mod_roster_odbc,   []},
   %%{mod_service_log,[]},
   {mod_shared_roster,[]},
   {mod_stats,    []},
   {mod_time,     []},
-  {mod_vcard,    []},
+  {mod_vcard_odbc,    []},
   {mod_version,  []}
  ]}.
 
