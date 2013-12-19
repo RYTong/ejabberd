@@ -284,6 +284,8 @@ init_nodes(Host, ServerHost, _NodeTree, Plugins) ->
     case lists:member("hometree_odbc", Plugins) of
     true ->
 	create_node(Host, ServerHost, string_to_node("/home"), service_jid(Host), "hometree_odbc"),
+	?DEBUG("** params is ~p",[{Host, ServerHost, string_to_node("/home/"++ServerHost), service_jid(Host), "hometree_odbc"}]),
+	?DEBUG("** create host is ~p",[create_node(Host, ServerHost, string_to_node("/home/"++ServerHost), service_jid(Host), "hometree_odbc")]),
 	create_node(Host, ServerHost, string_to_node("/home/"++ServerHost), service_jid(Host), "hometree_odbc");
     false ->
 	ok
@@ -2101,10 +2103,19 @@ get_items(Host, Node, From, SubId, SMaxItems, ItemIDs, RSM) ->
 			     %% Persistent Items Not Supported
 			     {error, extended_error(?ERR_FEATURE_NOT_IMPLEMENTED, unsupported, "persistent-items")};
 			 true ->
-			     node_call(Type, get_items,
-				       [NodeId, From,
-					AccessModel, PresenceSubscription, RosterGroup,
-					SubId, RSM])
+			     case ItemIDs of
+			         [ID] ->
+				     node_call(Type, get_item, 
+				               [NodeId, From,
+					        AccessModel, PresenceSubscription, RosterGroup,
+					        SubId, ID, RSM]);
+
+			         _ ->
+				     node_call(Type, get_items,
+				               [NodeId, From,
+					        AccessModel, PresenceSubscription, RosterGroup,
+					        SubId, RSM])
+			     end
 		     end
 	     end,
 	     case transaction(Host, Node, Action, sync_dirty) of
@@ -3146,6 +3157,7 @@ user_resources(User, Server) ->
 get_configure(Host, ServerHost, Node, From, Lang) ->
     Action =
 	fun(#pubsub_node{options = Options, type = Type, id = NodeId}) ->
+	        ?DEBUG("Options ~p",[Options]),
 		case node_call(Type, get_affiliation, [NodeId, From]) of
 		    {result, owner} ->
 			Groups = ejabberd_hooks:run_fold(roster_groups, ServerHost, [], [ServerHost]),

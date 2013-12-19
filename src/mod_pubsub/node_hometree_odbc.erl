@@ -77,6 +77,7 @@
 	 get_items/6,
 	 get_items/3,
 	 get_items/2,
+	 get_item/8,
 	 get_item/7,
 	 get_item/2,
 	 set_item/1,
@@ -1110,6 +1111,118 @@ get_last_items(NodeId, _From, Count) ->
 	{result, lists:map(fun(RItem) -> raw_to_item(NodeId, RItem) end, RItems)};
     _ ->
 	{result, []}
+    end.
+
+get_item(NodeId, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId, ItemId, RSM) ->
+    SubKey = jlib:jid_tolower(JID),
+    GenKey = jlib:jid_remove_resource(SubKey),
+    {Affiliation, Subscriptions} = select_affiliation_subscriptions(NodeId, GenKey, SubKey),
+    Whitelisted = can_fetch_item(Affiliation, Subscriptions),
+    if
+	%%SubId == "", ?? ->
+	    %% Entity has multiple subscriptions to the node but does not specify a subscription ID
+	    %{error, ?ERR_EXTENDED(?ERR_BAD_REQUEST, "subid-required")};
+	%%InvalidSubId ->
+	    %% Entity is subscribed but specifies an invalid subscription ID
+	    %{error, ?ERR_EXTENDED(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
+	Affiliation == outcast ->
+	    %% Requesting entity is blocked
+	    {error, ?ERR_FORBIDDEN};
+	(AccessModel == presence) and (not PresenceSubscription) ->
+	    %% Entity is not authorized to create a subscription (presence subscription required)
+	    {error, ?ERR_EXTENDED(?ERR_NOT_AUTHORIZED, "presence-subscription-required")};
+	(AccessModel == roster) and (not RosterGroup) ->
+	    %% Entity is not authorized to create a subscription (not in roster group)
+	    {error, ?ERR_EXTENDED(?ERR_NOT_AUTHORIZED, "not-in-roster-group")};
+	(AccessModel == whitelist) and (not Whitelisted) ->
+	    %% Node has whitelist access model and entity lacks required affiliation
+	    {error, ?ERR_EXTENDED(?ERR_NOT_ALLOWED, "closed-node")};
+	(AccessModel == authorize) and (not Whitelisted) ->
+	    %% Node has authorize access model
+	    {error, ?ERR_FORBIDDEN};
+	%%MustPay ->
+	%%	% Payment is required for a subscription
+	%%	{error, ?ERR_PAYMENT_REQUIRED};
+	true ->
+	    do_get_item(NodeId, JID, ItemId, RSM)
+    end.
+
+do_get_item(NodeId, From, ItemId, none) ->
+    MaxItems = case catch ejabberd_odbc:sql_query_t(
+	["select val from pubsub_node_option "
+	 "where nodeid='", NodeId, "' "
+	 "and name='max_items';"]) of
+    {selected, ["val"], [{Value}]} ->
+	Tokens = element(2, erl_scan:string(Value++".")),
+	element(2, erl_parse:parse_term(Tokens));
+    _ ->
+	?MAXITEMS
+    end,
+    do_get_item(NodeId, From, ItemId, #rsm_in{max=MaxItems});
+do_get_item(NodeId, _From, ItemId, #rsm_in{max=M, direction=Direction, id=I, index=IncIndex})->
+	Max =  ?PUBSUB:escape(i2l(M)),
+	
+	{Way, Order} = case Direction of
+			aft -> {"<", "desc"};
+			before when I == [] -> {"is not", "asc"};
+			before -> {">", "asc"};
+			_ when IncIndex =/= undefined -> {"<", "desc"}; % using index
+			_ -> {"is not", "desc"}% Can be better
+		end,
+	[AttrName, Id] = case I of
+		undefined when IncIndex =/= undefined ->
+			case catch ejabberd_odbc:sql_query_t(
+				["select modification from pubsub_item pi "
+				 "where exists ( "
+				   "select count(*) as count1 "
+				   "from pubsub_item "
+				   "where nodeid='", NodeId, "' "
+				   "and modification > pi.modification "
+				   "having count1 = ",?PUBSUB:escape(i2l(IncIndex))," );"]) of
+				{selected, [_], [{O}]} -> ["modification", "'"++O++"'"];
+				_ -> ["modification", "null"]
+			end;
+		undefined -> ["modification", "null"];
+		[] -> ["modification", "null"];
+		I -> 	[A, B] = string:tokens(?PUBSUB:escape(i2l(I)), "@"),
+			[A, "'"++B++"'"]
+	end,
+	Count= case catch ejabberd_odbc:sql_query_t(
+			["select count(*) "
+			 "from pubsub_item "
+			  "where nodeid='", NodeId, "';"]) of
+			{selected, [_], [{C}]} -> C;
+			_ -> "0"
+		end,
+
+	case catch ejabberd_odbc:sql_query_t(
+		 ["select itemid, publisher, creation, modification, payload "
+		  "from pubsub_item "
+		  "where nodeid='", NodeId, "' "
+		  "and itemid='", ItemId, "' "
+		  "and ", AttrName," ", Way, " ", Id, " "
+		  "order by ", AttrName," ", Order," limit ", i2l(Max)," ;"]) of
+	{selected, ["itemid", "publisher", "creation", "modification", "payload"], RItems} ->
+		case length(RItems) of
+			0 -> {result, {[], #rsm_out{count=Count}}};
+			_ ->
+				{_, _, _, F, _} = hd(RItems),
+				Index = case catch ejabberd_odbc:sql_query_t(
+					["select count(*) "
+					"from pubsub_item "
+					  "where nodeid='", NodeId, "' "
+					  "and ", AttrName," > '", F, "';"]) of
+					%{selected, [_], [{C}, {In}]} -> [string:strip(C, both, $"), string:strip(In, both, $")];
+					{selected, [_], [{In}]} -> In;
+					_ -> "0"
+				end,
+				%{F, _} = string:to_integer(FStr),
+				{_, _, _, L, _} = lists:last(RItems),
+				RsmOut = #rsm_out{count=Count, index=Index, first="modification@"++F, last="modification@"++i2l(L)},
+	    		{result, {lists:map(fun(RItem) -> raw_to_item(NodeId, RItem) end, RItems), RsmOut}}
+		end;
+	_ ->
+	    {result, {[], none}}
     end.
 
 %% @spec (NodeId, ItemId) -> [Item] | []
