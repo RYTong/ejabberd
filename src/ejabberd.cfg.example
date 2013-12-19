@@ -70,7 +70,7 @@
 %% 4: Info
 %% 5: Debug
 %%
-{loglevel, 4}.
+{loglevel, 5}.
 
 %%
 %% watchdog_admins: Only useful for developers: if an ejabberd process
@@ -380,7 +380,7 @@
 {acl, local, {user_regexp, ""}}.
 
 %% pubsub owner of ewp
-%%{acl, ewp_pubsub, {user, "ewp_pubsub", "ermp"}}
+{acl, ewp_pubsub, {user, "ewp_pubsub", "ermp"}}.
 
 %%
 %% More examples of ACLs
@@ -439,8 +439,8 @@
 {access, muc, [{allow, all}]}.
 
 %% Only accounts on the local ejabberd server can create Pubsub nodes:
-{access, pubsub_createnode, [{allow, local}]}.
-%%{access, pubsub_createnode, [{allow, ewp_pubsub}]}
+%%{access, pubsub_createnode, [{allow, local}]}.
+{access, pubsub_createnode, [{allow, ewp_pubsub}]}.
 
 %% In-band registration allows registration of any possible username.
 %% To disable in-band registration, replace 'allow' with 'deny'.
@@ -448,7 +448,7 @@
 
 %% By default the frequency of account registrations from the same IP
 %% is limited to 1 account every 10 minutes. To disable, specify: infinity
-%%{registration_timeout, 600}.
+{registration_timeout, infinity}.
 
 %%
 %% Define specific Access Rules in a virtual host.
@@ -537,6 +537,7 @@
 		  {ignore_pep_from_offline, true}, % reduces resource comsumption, but XEP incompliant
 		  %%{ignore_pep_from_offline, false},  % XEP compliant, but increases resource comsumption
 		  {last_item_cache, false},
+		  {max_items_node, 1000},
 		  {nodetree, "tree_odbc"},
 		  {plugins, ["hometree_odbc"]}  % pep requires mod_caps
 		 ]},
