@@ -331,13 +331,27 @@ subscribe_node(NodeId, Sender, Subscriber, AccessModel,
 	%%	% Requesting entity is anonymous
 	%%	{error, ?ERR_FORBIDDEN};
 	true ->
-	    case pubsub_subscription_odbc:subscribe_node(Subscriber, NodeId, Options) of
-		{result, SubId} ->
-		    NewSub = case AccessModel of
-				 authorize -> pending;
-				 _ -> subscribed
-			     end,
-		    update_subscription(NodeId, SubKey, [{NewSub, SubId} | Subscriptions]),
+	    case get_state(NodeId, Subscriber) of
+	        #pubsub_state{subscriptions = []} ->
+	            case pubsub_subscription_odbc:subscribe_node(Subscriber, NodeId, Options) of
+		        {result, SubId} ->
+		            NewSub = case AccessModel of
+				         authorize -> pending;
+				         _ -> subscribed
+			             end,
+		            update_subscription(NodeId, SubKey, [{NewSub, SubId} | Subscriptions]),
+		            case {NewSub, SendLast} of
+			        {subscribed, never} ->
+			            {result, {default, subscribed, SubId}};
+			        {subscribed, _} ->
+			            {result, {default, subscribed, SubId, send_last}};
+			        {_, _} ->
+			            {result, {default, pending, SubId}}
+		            end;
+		        _ ->
+		            {error, ?ERR_INTERNAL_SERVER_ERROR}
+	            end;
+		#pubsub_state{subscriptions = [{NewSub, SubId}|_]} ->
 		    case {NewSub, SendLast} of
 			{subscribed, never} ->
 			    {result, {default, subscribed, SubId}};
@@ -345,9 +359,7 @@ subscribe_node(NodeId, Sender, Subscriber, AccessModel,
 			    {result, {default, subscribed, SubId, send_last}};
 			{_, _} ->
 			    {result, {default, pending, SubId}}
-		    end;
-		_ ->
-		    {error, ?ERR_INTERNAL_SERVER_ERROR}
+		    end
 	    end
     end.
 
